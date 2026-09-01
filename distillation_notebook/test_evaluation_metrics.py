@@ -211,7 +211,8 @@ def test_7model_registry_and_light_switches():
         run_7model_ablation_matrix,
         generate_thesis_markdown_report,
     )
-    assert len(ALL_7_MODELS_REGISTRY) == 7
+    assert len(ALL_7_MODELS_REGISTRY) == 8
+    assert "cascade_pipeline_pt" in ALL_7_MODELS_REGISTRY
     assert "base_pt" in ALL_7_MODELS_REGISTRY
     assert "distilled_student_onnx" in ALL_7_MODELS_REGISTRY
 
@@ -227,9 +228,9 @@ def test_7model_registry_and_light_switches():
         )
         return metrics, hw
 
-    # Test all 7 enabled
+    # Test all enabled
     all_rows = run_7model_ablation_matrix(dummy_eval_fn, enabled_model_ids=None)
-    assert len(all_rows) == 7
+    assert len(all_rows) == 8
 
     # Test subset enabled via light switches (e.g., 3 active)
     subset_rows = run_7model_ablation_matrix(dummy_eval_fn, enabled_model_ids=["base_pt", "distilled_student_pt", "distilled_student_onnx"])
@@ -241,6 +242,75 @@ def test_7model_registry_and_light_switches():
     assert "3 Enabled Models" in report
 
 
+def test_two_stage_pediatric_cascade_pipeline():
+    """Tests TwoStagePediatricCascadePipeline logic, adult fallback, seating aspect calibration, and nested infant recovery."""
+    from evaluation_metrics import TwoStagePediatricCascadePipeline
+    import numpy as np
+    import torch
+
+    class _MockBox:
+        def __init__(self, xyxy, conf, cls):
+            self.xyxy = torch.tensor([xyxy], dtype=torch.float32)
+            self.conf = torch.tensor([conf], dtype=torch.float32)
+            self.cls = torch.tensor([cls], dtype=torch.float32)
+
+    class _MockResult:
+        def __init__(self, boxes):
+            self.boxes = boxes
+
+    # 1. Base detector returns 3 person proposals:
+    # - Box 1: [100, 100, 150, 300] (narrow, child proportion w/h = 50/200 = 0.25, h_ratio = 200/1000 = 0.20)
+    # - Box 2: [200, 100, 400, 250] (wide, seated adult proportion w/h = 200/150 = 1.33)
+    # - Box 3: [500, 100, 600, 500] (adult carrying nested infant)
+    def mock_base_detector(img, **kwargs):
+        boxes = [
+            _MockBox([100, 100, 150, 300], 0.90, 0),  # child
+            _MockBox([200, 100, 400, 250], 0.88, 0),  # seated adult
+            _MockBox([500, 100, 600, 500], 0.92, 0),  # adult with nested baby
+        ]
+        return [_MockResult(boxes)]
+
+    # 2. Secondary detector behavior per crop:
+    def mock_sec_detector(crop, **kwargs):
+        h, w = crop.shape[:2]
+        # If crop is Box 1 (50x200) -> detects child with 0.85 conf
+        if w <= 60 and h >= 180:
+            return [_MockResult([_MockBox([0, 0, w, h], 0.85, 0)])]
+        # If crop is Box 2 (200x150) -> secondary misclassifies as child
+        elif w >= 180 and h <= 160:
+            return [_MockResult([_MockBox([0, 0, w, h], 0.70, 0)])]
+        # If crop is Box 3 (100x400) -> detects nested infant in upper center
+        elif w == 100 and h == 400:
+            return [_MockResult([_MockBox([20, 50, 80, 150], 0.80, 0)])]
+        return [_MockResult([])]
+
+    pipeline = TwoStagePediatricCascadePipeline(
+        base_detector=mock_base_detector,
+        secondary_detector=mock_sec_detector,
+        min_child_conf=0.35,
+        max_aspect_ratio=0.65,
+        max_h_ratio=0.20,
+    )
+
+    dummy_frame = np.zeros((1000, 1000, 3), dtype=np.uint8)
+    res = pipeline(dummy_frame)[0]
+
+    assert res.boxes is not None
+    assert len(res.boxes.xyxy) == 4  # 3 original + 1 nested infant
+
+    # Check classes
+    classes = res.boxes.cls.tolist()
+    # Box 1: child (0)
+    assert classes[0] == 0.0
+    # Box 2: seated adult overridden by aspect ratio -> adult (1)
+    assert classes[1] == 1.0
+    # Box 3: parent adult -> adult (1)
+    assert classes[2] == 1.0
+    # Box 4: nested infant -> child (0)
+    assert classes[3] == 0.0
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
+
 

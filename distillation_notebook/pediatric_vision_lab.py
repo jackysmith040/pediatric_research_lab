@@ -207,9 +207,23 @@ def _():
         distilled_model,
         onnx_distilled=None,
         onnx_finetuned=None,
+        cascade_pipeline=None,
     ):
         sel = (selection_str or "").lower()
-        if "onnx" in sel and "distill" in sel and onnx_distilled is not None:
+        if "cascade" in sel or "two-stage" in sel:
+            if cascade_pipeline is not None:
+                return cascade_pipeline, "Two-Stage Cascade Architecture (Stage 1 Base Recall + Stage 2 Triage)"
+            elif base_model is not None:
+                _sec = distilled_model if (distilled_model is not None and distilled_model != base_model) else traditional_model
+                _casc = eval_engine.TwoStagePediatricCascadePipeline(
+                    base_detector=base_model,
+                    secondary_detector=_sec,
+                    min_child_conf=0.35,
+                    max_aspect_ratio=0.65,
+                    max_h_ratio=0.20,
+                )
+                return _casc, "Two-Stage Cascade Architecture (Stage 1 Base Recall + Stage 2 Triage)"
+        elif "onnx" in sel and "distill" in sel and onnx_distilled is not None:
             return onnx_distilled, "DINOv3 Distilled ONNX Edge Engine (best.onnx)"
         elif "onnx" in sel and onnx_finetuned is not None:
             return onnx_finetuned, "Fine-Tuned ONNX Edge Engine (pediatric-model.onnx)"
@@ -639,7 +653,7 @@ def _(
 
 
 @app.cell
-def _(Path, distilled_model_path, model_path, os, traditional_model_path):
+def _(Path, distilled_model_path, eval_engine, model_path, os, traditional_model_path):
     # Cache YOLO Models in Memory
     from ultralytics import YOLO
 
@@ -667,6 +681,19 @@ def _(Path, distilled_model_path, model_path, os, traditional_model_path):
     else:
         distilled_yolo_model = base_yolo_model
 
+    # Instantiate Two-Stage Cascade Pipeline
+    _sec_model = distilled_yolo_model if (distilled_yolo_model is not None and distilled_yolo_model != base_yolo_model) else traditional_yolo_model
+    if base_yolo_model is not None:
+        cascade_pipeline = eval_engine.TwoStagePediatricCascadePipeline(
+            base_detector=base_yolo_model,
+            secondary_detector=_sec_model,
+            min_child_conf=0.35,
+            max_aspect_ratio=0.65,
+            max_h_ratio=0.20,
+        )
+    else:
+        cascade_pipeline = None
+
     # Cache ONNX edge engines
     _onnx_dist_p = _base_dir / "computer_vision_model" / "onnx" / "onnx_distilled" / "best.onnx"
     _onnx_fine_p = _base_dir / "computer_vision_model" / "onnx" / "onnx_fine_tuned" / "pediatric-model.onnx"
@@ -683,6 +710,7 @@ def _(Path, distilled_model_path, model_path, os, traditional_model_path):
 
     return (
         base_yolo_model,
+        cascade_pipeline,
         distilled_yolo_model,
         onnx_distilled_model,
         onnx_finetuned_model,
@@ -794,14 +822,15 @@ def _(cv2, mo, video_chunk_dropdown, video_path):
 
     ch1_seek_model_dropdown = mo.ui.dropdown(
         options=[
+            "🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
             "Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
             "Model 2: Supervised Fine-Tuned (Active: fine_tune_model/pediatric-model.pt)",
             "Model 1: Base Pretrained YOLO26s (COCO person)",
             "Edge Engine: DINOv3 Distilled ONNX (onnx_distilled/best.onnx)",
             "Edge Engine: Fine-Tuned ONNX (onnx_fine_tuned/pediatric-model.onnx)",
         ],
-        value="Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
-        label="⚡ Seek Frame Detector Model",
+        value="🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
+        label="⚡ Seek Frame Detector Model / Pipeline",
     )
 
     conf_slider = mo.ui.slider(
@@ -831,6 +860,7 @@ def _(
     Image,
     base64,
     base_yolo_model,
+    cascade_pipeline,
     ch1_seek_model_dropdown,
     clahe_checkbox,
     conf_slider,
@@ -862,6 +892,7 @@ def _(
         distilled_yolo_model,
         onnx_distilled_model,
         onnx_finetuned_model,
+        cascade_pipeline=cascade_pipeline,
     )
 
     if video_path is not None and _active_eval_model is not None:
@@ -964,14 +995,15 @@ def _(mo):
     )
     ch1_model_dropdown = mo.ui.dropdown(
         options=[
+            "🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
             "Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
             "Model 2: Supervised Fine-Tuned (Active: fine_tune_model/pediatric-model.pt)",
             "Model 1: Base Pretrained YOLO26s (COCO person)",
             "Edge Engine: DINOv3 Distilled ONNX (onnx_distilled/best.onnx)",
             "Edge Engine: Fine-Tuned ONNX (onnx_fine_tuned/pediatric-model.onnx)",
         ],
-        value="Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
-        label="⚡ Active Inference Model",
+        value="🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
+        label="⚡ Active Inference Model / Pipeline",
     )
     live_stream_conf_slider = mo.ui.slider(
         start=0.10, stop=0.80, step=0.05, value=0.25, label="🎯 Stream Detection Confidence"
@@ -1005,6 +1037,7 @@ def _(
     apply_clahe_enhancement,
     base64,
     base_yolo_model,
+    cascade_pipeline,
     ch1_model_dropdown,
     chunk_selector,
     create_tracker,
@@ -1037,6 +1070,7 @@ def _(
         distilled_yolo_model,
         onnx_distilled_model,
         onnx_finetuned_model,
+        cascade_pipeline=cascade_pipeline,
     )
 
     if video_path is not None and _active_stream_model is not None:
@@ -1264,14 +1298,15 @@ def _(mo):
 def _(mo):
     sahi_model_dropdown = mo.ui.dropdown(
         options=[
+            "🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
             "Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
             "Model 2: Supervised Fine-Tuned (Active: fine_tune_model/pediatric-model.pt)",
             "Model 1: Base Pretrained YOLO26s (COCO person)",
             "Edge Engine: DINOv3 Distilled ONNX (onnx_distilled/best.onnx)",
             "Edge Engine: Fine-Tuned ONNX (onnx_fine_tuned/pediatric-model.onnx)",
         ],
-        value="Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
-        label="⚡ SAHI Detection Model",
+        value="🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
+        label="⚡ SAHI Detection Model / Pipeline",
     )
     slice_w_slider = mo.ui.slider(start=320, stop=960, step=160, value=640, label="📐 Slice Width (px)")
     slice_h_slider = mo.ui.slider(start=320, stop=960, step=160, value=640, label="📐 Slice Height (px)")
@@ -1295,6 +1330,7 @@ def _(
     Image,
     base64,
     base_yolo_model,
+    cascade_pipeline,
     conf_slider,
     cv2,
     distilled_yolo_model,
@@ -1324,6 +1360,7 @@ def _(
         distilled_yolo_model,
         onnx_distilled_model,
         onnx_finetuned_model,
+        cascade_pipeline=cascade_pipeline,
     )
 
     if frame_bgr is not None and _sahi_model is not None:
@@ -1441,12 +1478,12 @@ def _(mo):
 def _(mo):
     model_arena_mode = mo.ui.dropdown(
         options=[
-            "3-Way Arena: Synchronized Multi-Model Video Stream (Live Dynamic Video)",
-            "3-Way Arena: High-Res Static Frame Tri-Split",
+            "4-Way Arena: Two-Stage Cascade Pipeline vs Distilled vs Supervised vs Base (High-Res Split)",
+            "Synchronized Multi-Model Video Stream (Live Dynamic Video)",
             "DINOv3 Teacher Real Spatial Attention Heatmap Overlay",
             "Theoretical Distillation Loss & Latent Cosine Alignment Curves",
         ],
-        value="3-Way Arena: Synchronized Multi-Model Video Stream (Live Dynamic Video)",
+        value="4-Way Arena: Two-Stage Cascade Pipeline vs Distilled vs Supervised vs Base (High-Res Split)",
         label="🔬 Distillation Inspection Mode",
     )
     distill_lambda_slider = mo.ui.slider(
@@ -1464,6 +1501,7 @@ def _(
     T,
     base64,
     base_yolo_model,
+    cascade_pipeline,
     conf_slider,
     cv2,
     dinov3_teacher,
@@ -1484,7 +1522,7 @@ def _(
     traditional_yolo_model,
     video_path,
 ):
-    _distill_display = mo.md("🧬 Initializing 3-Model Arena...")
+    _distill_display = mo.md("🧬 Initializing Comparative Arena...")
 
     if base_yolo_model is not None:
         _mode = model_arena_mode.value
@@ -1570,16 +1608,11 @@ def _(
 
                 _card_m2_html = f"""
                 <div style="background: rgba(13,17,23,0.9); border: 2px solid #FFD700; border-radius: 12px; padding: 10px;">
-                    <div style="font-weight: bold; color: #FFD700; font-size: 13px; margin-bottom: 6px;">(2) Traditional Supervised YOLO26s (Active: <code>fine_tune_model/pediatric-model.pt</code>)</div>
+                    <div style="font-weight: bold; color: #FFD700; font-size: 13px; margin-bottom: 6px;">(2) Traditional Supervised YOLO26s</div>
                     <img src="data:image/webp;base64,{_webp_m2}" style="width: 100%; border-radius: 8px; display: block;" />
                     <div style="font-size: 11px; color: #888; margin-top: 6px;">Supervised fine-tuned on pediatric dataset ({len(_frames_m2)} frames).</div>
                 </div>
-                """ if _webp_m2 else """
-                <div style="background: rgba(255,215,0,0.04); border: 2px dashed rgba(255,215,0,0.4); border-radius: 12px; padding: 24px; text-align: center;">
-                    <div style="color: #FFD700; font-weight: bold; font-size: 14px;">(2) Traditional Fine-Tuned Model</div>
-                    <div style="color: #888; font-size: 12px; margin-top: 6px;">Awaiting Fine-Tuned Checkpoint.</div>
-                </div>
-                """
+                """ if _webp_m2 else ""
 
                 _card_m3_html = f"""
                 <div style="background: rgba(13,17,23,0.9); border: 2px solid #00FF66; border-radius: 12px; padding: 10px;">
@@ -1587,18 +1620,11 @@ def _(
                     <img src="data:image/webp;base64,{_webp_m3}" style="width: 100%; border-radius: 8px; display: block;" />
                     <div style="font-size: 11px; color: #888; margin-top: 6px;">Dense foundation representation guidance; robust on occlusions.</div>
                 </div>
-                """ if _webp_m3 else """
-                <div style="background: rgba(0, 255, 102, 0.03); border: 2px dashed rgba(0, 255, 102, 0.35); border-radius: 12px; padding: 30px 16px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 220px;">
-                    <div style="font-size: 28px; margin-bottom: 8px;">🧠 ⏳</div>
-                    <div style="color: #00FF66; font-weight: bold; font-size: 14px;">(3) DINOv3 Distilled YOLO26s (Proposed)</div>
-                    <div style="color: #888; font-size: 12px; margin-top: 6px; max-width: 280px;">Awaiting DINOv3 Distillation Checkpoint.</div>
-                    <div style="color: #00E5FF; font-size: 11px; margin-top: 8px; background: rgba(0,229,255,0.1); padding: 4px 10px; border-radius: 6px;">Run <code>dinov3_yolo26s_distillation_train.py</code> or upload <code>yolo26s_distilled.pt</code> above to activate!</div>
-                </div>
-                """
+                """ if _webp_m3 else ""
 
                 _distill_display = mo.vstack([
                     mo.hstack([model_arena_mode, distill_lambda_slider, distill_epochs_slider], justify="start", gap=2),
-                    mo.md("### 🥊 Synchronized 3-Model Live Video Arena:"),
+                    mo.md("### 🥊 Synchronized Multi-Model Live Video Arena:"),
                     mo.Html(f"""
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-top: 10px;">
                         {_card_m1_html}
@@ -1609,8 +1635,8 @@ def _(
                     mo.md(r"""
                     💡 **Architectural Comparison**:
                     - **(1) Base YOLO26s**: Off-the-shelf COCO weights; detects general adults but misses carried infants and children.
-                    - **(2) Traditional Supervised YOLO26s**: Fine-tuned on bounding boxes (`pediatric-model.pt`), accurately separating `child` vs `adult`.
-                    - **(3) DINOv3 Distilled YOLO26s**: Distilled with dense foundation self-attention representations to retain high detection fidelity even under $>60\%$ clinical occlusion!
+                    - **(2) Traditional Supervised YOLO26s**: Fine-tuned on bounding boxes (`pediatric-model.pt`), separating `child` vs `adult`.
+                    - **(3) DINOv3 Distilled YOLO26s**: Distilled with dense foundation self-attention representations to retain high detection fidelity under occlusion!
                     """)
                 ])
             except Exception as e:
@@ -1619,10 +1645,10 @@ def _(
                 if _cap is not None:
                     _cap.release()
 
-        elif "High-Res Static Frame Tri-Split" in _mode and frame_bgr is not None:
+        elif ("4-Way Arena" in _mode or "Static Frame" in _mode) and frame_bgr is not None:
             _frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             _box_ann = sv.BoxAnnotator(thickness=2)
-            _label_ann = sv.LabelAnnotator(text_scale=0.5, text_padding=2)
+            _label_ann = sv.LabelAnnotator(text_scale=0.48, text_padding=2)
 
             # 1. Base YOLO26s Model Prediction
             _res_base = base_yolo_model(_frame_rgb, conf=conf_slider.value, verbose=False)[0]
@@ -1645,30 +1671,45 @@ def _(
             _img_dist = _box_ann.annotate(scene=frame_bgr.copy(), detections=_dets_dist)
             _img_dist = _label_ann.annotate(scene=_img_dist, detections=_dets_dist, labels=_labels_dist)
 
-            # Tri-split comparative canvas
-            _w_sub = 420
-            _h_sub = 236
+            # 4. Two-Stage Cascade Pipeline Prediction
+            if cascade_pipeline is not None:
+                _res_casc = cascade_pipeline(_frame_rgb, conf=conf_slider.value, verbose=False)[0]
+                _dets_casc = sv.Detections.from_ultralytics(_res_casc)
+                _labels_casc = [f"{cascade_pipeline.names.get(_cid, _cid)} {_c:.2f}" for _cid, _c in zip(_dets_casc.class_id, _dets_casc.confidence)]
+                _img_casc = _box_ann.annotate(scene=frame_bgr.copy(), detections=_dets_casc)
+                _img_casc = _label_ann.annotate(scene=_img_casc, detections=_dets_casc, labels=_labels_casc)
+            else:
+                _img_casc = _img_dist
+
+            # 4-split comparative canvas (2x2 grid)
+            _w_sub = 460
+            _h_sub = 258
             _sub1 = cv2.resize(_img_base, (_w_sub, _h_sub))
             _sub2 = cv2.resize(_img_trad, (_w_sub, _h_sub))
             _sub3 = cv2.resize(_img_dist, (_w_sub, _h_sub))
+            _sub4 = cv2.resize(_img_casc, (_w_sub, _h_sub))
 
-            _tri_canvas = np.hstack([_sub1, _sub2, _sub3])
-            _pil_tri = Image.fromarray(cv2.cvtColor(_tri_canvas, cv2.COLOR_BGR2RGB))
-            _buf_tri = io.BytesIO()
-            _pil_tri.save(_buf_tri, format="JPEG", quality=95)
-            _tri_b64 = base64.b64encode(_buf_tri.getvalue()).decode("utf-8")
+            _row1 = np.hstack([_sub1, _sub2])
+            _row2 = np.hstack([_sub3, _sub4])
+            _quad_canvas = np.vstack([_row1, _row2])
+
+            _pil_quad = Image.fromarray(cv2.cvtColor(_quad_canvas, cv2.COLOR_BGR2RGB))
+            _buf_quad = io.BytesIO()
+            _pil_quad.save(_buf_quad, format="JPEG", quality=95)
+            _quad_b64 = base64.b64encode(_buf_quad.getvalue()).decode("utf-8")
 
             _distill_display = mo.vstack([
                 mo.hstack([model_arena_mode, distill_lambda_slider, distill_epochs_slider], justify="start", gap=2),
                 mo.md(r"""
-                ### 🥊 3-Way Model Architecture Static Arena:
-                <div style="display: flex; justify-content: space-around; font-weight: bold; margin-bottom: 8px; font-size: 13px;">
-                    <span style="color: #FF5252;">(1) Base Pre-trained YOLO26s</span>
-                    <span style="color: #FFD700;">(2) Traditional Supervised YOLO26s</span>
-                    <span style="color: #00FF66;">(3) DINOv3 Distilled YOLO26s (Proposed)</span>
+                ### 🥊 4-Way Architecture Arena (2x2 Quad Comparison):
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-weight: bold; margin-bottom: 8px; font-size: 12px; text-align: center;">
+                    <span style="color: #FF5252;">(1) Top-Left: Base Pre-trained YOLO26s (COCO Recall)</span>
+                    <span style="color: #FFD700;">(2) Top-Right: Traditional Supervised YOLO26s</span>
+                    <span style="color: #00FF66;">(3) Bottom-Left: DINOv3 Distilled YOLO26s</span>
+                    <span style="color: #00E5FF;">(4) Bottom-Right: Two-Stage Cascade Pipeline (Proposed SOTA)</span>
                 </div>
                 """),
-                mo.Html(f'<img src="data:image/jpeg;base64,{_tri_b64}" style="width:100%; border-radius:12px; border: 2px solid #00FF66; box-shadow: 0 10px 30px rgba(0,255,102,0.25);" />'),
+                mo.Html(f'<img src="data:image/jpeg;base64,{_quad_b64}" style="width:100%; border-radius:12px; border: 2px solid #00E5FF; box-shadow: 0 10px 30px rgba(0,229,255,0.25);" />'),
             ])
 
         elif "DINOv3 Teacher Real" in _mode and dinov3_teacher is not None and frame_bgr is not None:
@@ -1780,14 +1821,15 @@ def _(mo):
     # Controls for continuous video clip rendering
     ch4_model_dropdown = mo.ui.dropdown(
         options=[
+            "🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
             "Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
             "Model 2: Supervised Fine-Tuned (Active: fine_tune_model/pediatric-model.pt)",
             "Model 1: Base Pretrained YOLO26s (COCO person)",
             "Edge Engine: DINOv3 Distilled ONNX (onnx_distilled/best.onnx)",
             "Edge Engine: Fine-Tuned ONNX (onnx_fine_tuned/pediatric-model.onnx)",
         ],
-        value="Model 3: DINOv3 Distilled (Active: distilled_model/best.pt)",
-        label="⚡ Tracker Detection Model",
+        value="🚀 Two-Stage Cascade Pipeline (Stage 1 Base Recall + Stage 2 Posture Triage)",
+        label="⚡ Tracker Detection Model / Pipeline",
     )
     clip_frames_slider = mo.ui.slider(
         start=25, stop=80, step=10, value=35, label="🎞️ Frames to Render into Video Clip"
@@ -1819,6 +1861,7 @@ def _(
     apply_clahe_enhancement,
     base64,
     base_yolo_model,
+    cascade_pipeline,
     ch4_clahe_checkbox,
     ch4_model_dropdown,
     ch4_tracker_dropdown,
@@ -1850,6 +1893,7 @@ def _(
         distilled_yolo_model,
         onnx_distilled_model,
         onnx_finetuned_model,
+        cascade_pipeline=cascade_pipeline,
     )
 
     if video_path is not None and _active_eval_model is not None:
@@ -2051,7 +2095,8 @@ def _(mo):
         start=0.30, stop=0.75, step=0.05, value=0.50, label="📐 Evaluation IoU Threshold"
     )
 
-    # 💡 7-Model Light Switches
+    # 💡 8-Model Light Switches
+    model_switch_cascade_pt = mo.ui.checkbox(value=True, label="🚀 Two-Stage Cascade Pipeline (PyTorch)")
     model_switch_base_pt = mo.ui.checkbox(value=True, label="1. Base YOLO26s (PyTorch)")
     model_switch_ft_base_pt = mo.ui.checkbox(value=True, label="2. FT Baseline (PyTorch)")
     model_switch_ft_pediatric_pt = mo.ui.checkbox(value=True, label="3. FT Pediatric (PyTorch)")
@@ -2065,6 +2110,7 @@ def _(mo):
         ablation_iou_slider,
         benchmark_dataset_dropdown,
         model_switch_base_pt,
+        model_switch_cascade_pt,
         model_switch_distilled_onnx,
         model_switch_distilled_pt,
         model_switch_ft_base_pt,
@@ -2086,6 +2132,7 @@ def _(
     io,
     mo,
     model_switch_base_pt,
+    model_switch_cascade_pt,
     model_switch_distilled_onnx,
     model_switch_distilled_pt,
     model_switch_ft_base_pt,
@@ -2111,6 +2158,7 @@ def _(
 
     # 3. Gather active enabled model IDs from light switches
     _enabled_model_ids = []
+    if model_switch_cascade_pt.value: _enabled_model_ids.append("cascade_pipeline_pt")
     if model_switch_base_pt.value: _enabled_model_ids.append("base_pt")
     if model_switch_ft_base_pt.value: _enabled_model_ids.append("fine_tune_base_pt")
     if model_switch_ft_pediatric_pt.value: _enabled_model_ids.append("fine_tune_pediatric_pt")
@@ -2248,14 +2296,15 @@ def _(
     ])
 
     _light_switch_panel = mo.vstack([
-        mo.md("### 💡 Model Light Switches (Toggle any model ON or OFF at runtime)"),
+        mo.md("### 💡 Model Light Switches (Toggle any model / pipeline ON or OFF at runtime)"),
         mo.hstack([
+            model_switch_cascade_pt,
             model_switch_base_pt,
             model_switch_ft_base_pt,
             model_switch_ft_pediatric_pt,
-            model_switch_distilled_pt,
         ], justify="start", gap=2),
         mo.hstack([
+            model_switch_distilled_pt,
             model_switch_distilled_onnx,
             model_switch_ft_pediatric_onnx,
             model_switch_ft_kids_onnx,
