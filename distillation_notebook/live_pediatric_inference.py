@@ -236,18 +236,15 @@ def run_live_inference(video_source=None, target_width=1280, conf_thresh=0.25):
 
     t_prev = time.perf_counter()
 
-    # Fast forward to prime active crowd segment (e.g. frame 200) if large video
-    if total_frames > 500:
-        start_frame = 200
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        frame_idx = start_frame
+    print("🚀 Video stream started. Window opening...")
 
     while True:
         if not is_paused:
             ret, frame = cap.read()
             if not ret or frame is None:
-                # Loop back to beginning for continuous demonstration
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                # Loop back cleanly by reopening capture to preserve HEVC keyframe decoding
+                cap.release()
+                cap = cv2.VideoCapture(str(video_source) if not isinstance(video_source, int) else video_source)
                 frame_idx = 0
                 ret, frame = cap.read()
                 if not ret or frame is None:
