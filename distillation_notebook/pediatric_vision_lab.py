@@ -1241,6 +1241,14 @@ def _(
                 plt.close(_fig_telemetry)
 
                 _live_display = mo.vstack([
+                    mo.callout(
+                        mo.md("""
+                        **🎥 Live Video Presentation Options for Supervisor Review:**
+                        1. **Interactive In-Browser Player (Below)**: Select active model and video chunk to watch continuous live inference, Kalman Rollback FastTracker bounding boxes, and telemetry graphs.
+                        2. **High-Speed Real-Time Desktop Stream (60 FPS)**: Run `uv run python live_pediatric_inference.py` in your terminal for a full-screen interactive live inference window with hotkeys (`[SPACE]` Pause, `[M]` Switch Model, `[T]` Tracker, `[C]` CLAHE).
+                        """),
+                        kind="info",
+                    ),
                     mo.hstack([chunk_selector, ch1_model_dropdown, tracker_choice_dropdown, live_stream_conf_slider, stream_clahe_toggle], justify="start", gap=2),
                     mo.Html(f"""
                     <div style="background: #0d1117; border: 2px solid #00E5FF; border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0,229,255,0.15); margin-top: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">

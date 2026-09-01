@@ -2,7 +2,25 @@
   PEDIATRIC COMPUTER VISION: MARIMO LAB & TRAINING COMMAND CHEATSHEET
 ================================================================================
 
-1. 🧠 MAIN INTERACTIVE VISUAL STUDY LAB (Chapters 1 - 6)
+1. 🎥 LIVE REAL-TIME CCTV INFERENCE STREAM (FOR SUPERVISOR DEMOS)
+-----------------------------------------------------------------
+Interactive Real-Time Desktop Stream (60 FPS HUD with live model switching):
+  uv run python live_pediatric_inference.py
+
+Controls in Live Viewer:
+  [SPACE] Pause / Play
+  [M]     Switch Active Model (Two-Stage Cascade -> DINOv3 Distilled -> Supervised FT -> Base)
+  [T]     Toggle Multi-Object Tracking ON/OFF
+  [C]     Toggle CLAHE Contrast Boost
+  [S]     Toggle Slow Motion (0.5x)
+  [R]     Restart Stream from Beginning
+  [Q]     Quit Viewer
+
+Export Standalone High-Definition Demo Video:
+  uv run python generate_live_demo_video.py
+
+
+2. 🧠 MAIN INTERACTIVE VISUAL STUDY LAB (Chapters 1 - 6)
 ---------------------------------------------------------
 Interactive Edit Mode (Sliders, code blocks, parameters):
   uv run marimo edit pediatric_vision_lab.py
@@ -11,23 +29,20 @@ Read-Only App Mode (Clean dashboard interface):
   uv run marimo run pediatric_vision_lab.py
 
 
-2. 🚀 DINOv3 -> YOLO26s CLOUD DISTILLATION & FINE-TUNING
+3. 🚀 DINOv3 -> YOLO26s CLOUD DISTILLATION & FINE-TUNING
 ---------------------------------------------------------
 Interactive Notebook:
   uv run marimo edit dinov3_yolo26s_distillation_train.py
 
 
-3. 🏋️‍♂️ TRADITIONAL SUPERVISED FINE-TUNING BASELINE (M2)
+4. 🏋️‍♂️ TRADITIONAL SUPERVISED FINE-TUNING BASELINE (M2)
 ---------------------------------------------------------
 Interactive Notebook:
   uv run marimo edit traditional_yolo26s_finetune_train.py
 
 
-4. 🧪 ACADEMIC EVALUATION & TEST SUITE (12 UNIT TESTS)
+5. 🧪 ACADEMIC EVALUATION & TEST SUITE (14 UNIT TESTS)
 ---------------------------------------------------------
 Run Full Pytest Suite:
-  uv run pytest test_evaluation_metrics.py
-
-Run Pytest Verbose:
   uv run pytest -v test_evaluation_metrics.py
 ================================================================================

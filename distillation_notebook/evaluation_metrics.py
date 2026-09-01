@@ -773,10 +773,12 @@ class TwoStagePediatricCascadePipeline:
                 final_cls.append(0)
 
         class _Boxes:
-            def __init__(self, xyxy, conf, cls):
+            def __init__(self, xyxy, conf, cls, id=None):
                 self.xyxy = torch.tensor(xyxy, dtype=torch.float32) if len(xyxy) > 0 else torch.zeros((0, 4), dtype=torch.float32)
                 self.conf = torch.tensor(conf, dtype=torch.float32) if len(conf) > 0 else torch.zeros((0,), dtype=torch.float32)
                 self.cls = torch.tensor(cls, dtype=torch.float32) if len(cls) > 0 else torch.zeros((0,), dtype=torch.float32)
+                self.id = id
+                self.is_track = id is not None
             def __len__(self):
                 return len(self.xyxy)
 
@@ -785,6 +787,10 @@ class TwoStagePediatricCascadePipeline:
                 self.boxes = boxes
                 self.names = names
                 self.orig_shape = orig_shape
+                self.masks = None
+                self.keypoints = None
+                self.probs = None
+                self.obb = None
 
         res_obj = _Result(_Boxes(final_xyxy, final_confs, final_cls), self.names, (h_frame, w_frame))
         return [res_obj]
