@@ -16,6 +16,7 @@
 - [/] Executing Academic Benchmarking & Thesis Results Export.
 
 ## ✅ Done
+- [x] Initialized Git repository, configured production `.gitignore` (ignoring >1GB CCTV video feeds, local PyTorch/ONNX checkpoints, and runtime caches), and published clean `Pediatric-Research-Lab` repository to GitHub (`git@github.com:jackysmith040/pediatric_research_lab.git`).
 - [x] Implemented 7-Model Registry (`ALL_7_MODELS_REGISTRY`), interactive light switches (`model_switch_*` checkboxes), dynamic `run_7model_ablation_matrix`, and `generate_thesis_markdown_report` in `evaluation_metrics.py` and `pediatric_vision_lab.py`.
 - [x] Full model suite (.pt and .onnx) acquired, verified, and placed in `computer_vision_model/` (Base YOLO26s, Fine-Tuned `pediatric-model.pt`, DINOv3 Distilled `best.pt`, and ONNX engines `best.onnx`, `pediatric-model.onnx`, `pediatric-kids-only.onnx`).
 
