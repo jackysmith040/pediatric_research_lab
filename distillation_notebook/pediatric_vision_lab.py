@@ -989,6 +989,7 @@ def _(mo):
             "Clip B: Frames 45 – 80 (Corridor Walking)",
             "Clip C: Frames 90 – 125 (Doorway Crossing)",
             "Clip D: Frames 135 – 170 (Waiting Room Area)",
+            "Continuous Clip: Frames 100 – 160 (Active Flow)",
         ],
         value="Clip A: Frames 0 – 35 (Hallway Entrance)",
         label="🎬 Select Video Stream Chunk",
@@ -1093,8 +1094,11 @@ def _(
                     _start_f = 90
                 elif "Clip D" in _chunk_str:
                     _start_f = 135
+                elif "Continuous" in _chunk_str:
+                    _start_f = 100
+                    _chunk_len = 60
 
-                # Prime keyframes up to start_f
+                # Prime keyframes sequentially up to start_f
                 for _ in range(_start_f):
                     _ret_ff, _ = _cap.read()
                     if not _ret_ff:
