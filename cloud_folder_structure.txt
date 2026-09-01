@@ -1,0 +1,122 @@
+================================================================================
+  DINOv3 -> YOLO26s DISTILLATION TRAINING: CLOUD DEPLOYMENT & FOLDER STRUCTURE
+================================================================================
+
+Target Script: dinov3_yolo26s_distillation_train.py
+Intended Cloud Environments: MoLab, Google Colab, RunPod, Lambda Labs, AWS EC2, Vast.ai
+
+--------------------------------------------------------------------------------
+1. RECOMMENDED STANDALONE CLOUD FOLDER STRUCTURE (TOTAL UPLOAD SIZE: ~21 MB)
+--------------------------------------------------------------------------------
+
+Upload the contents of 'distillation_notebook/' into your cloud working directory:
+
+/workspace/ (or /content/ on Colab)
+├── dinov3_yolo26s_distillation_train.py   # [MANDATORY] Main interactive training pipeline
+├── evaluation_metrics.py                  # [MANDATORY] Thesis metrics & profiling engine (imported in Step 6)
+├── pyproject.toml                         # [MANDATORY] Dependencies spec for uv
+├── requirements.txt                       # [MANDATORY] Dependencies spec for pip
+│
+├── dataset/                               # [MANDATORY]
+│   ├── unified-dataset.ndjson             # [MANDATORY] 2,414 pediatric image URLs & YOLO bbox annotations (~765 KB)
+│   └── qh.ndjson                          # [MANDATORY] 507 hospital CCTV frames & metadata (~138 KB)
+│
+├── computer_vision_model/                 # [RECOMMENDED]
+│   └── yolo26s.pt                         # [RECOMMENDED] YOLO26s student base weights (~20.4 MB)
+│
+└── video_for_testing_model/               # [OPTIONAL - ONLY IF EXTRACTING FROM VIDEO]
+    └── Hospital_OTMC_GF_OPD_Hospital_Hospital_20260618104602_20260618123051 (1).mp4 (1.06 GB)
+
+
+--------------------------------------------------------------------------------
+2. DETAILED FILE ROLE & NECESSITY MATRIX
+--------------------------------------------------------------------------------
+
++-----------------------------------------+-----------+-----------+-------------------------------------------------------+
+| Path                                    | Size      | Status    | Purpose / Why It Matters                              |
++-----------------------------------------+-----------+-----------+-------------------------------------------------------+
+| dinov3_yolo26s_distillation_train.py    | ~38 KB    | MANDATORY | Core Marimo notebook running the 6 training steps.     |
+| evaluation_metrics.py                   | ~36 KB    | MANDATORY | Imported by Step 6 (Distillation Fidelity & LaTeX).   |
+| pyproject.toml / requirements.txt       | ~1 KB     | MANDATORY | Installs PyTorch, Ultralytics, LightlyTrain, Marimo.  |
+| dataset/unified-dataset.ndjson          | ~765 KB   | MANDATORY | Supplies 2,414 annotated pediatric CCTV image links.  |
+| dataset/qh.ndjson                       | ~138 KB   | MANDATORY | Supplies 507 pediatric hospital CCTV image links.     |
+| computer_vision_model/yolo26s.pt        | ~20.4 MB  | RECOMMENDED| Base YOLO model. If missing, Ultralytics downloads it.|
+| computer_vision_model/dinov3_vits16.pth | ~85 MB    | OPTIONAL  | Teacher weights. If missing, downloaded via Hub / URL.|
+| video_for_testing_model/*.mp4           | ~1.06 GB  | OPTIONAL  | ONLY needed if using Option 2 (Extract CCTV Video).   |
++-----------------------------------------+-----------+-----------+-------------------------------------------------------+
+
+
+--------------------------------------------------------------------------------
+3. WHAT NOT TO UPLOAD (PREVENTING CLOUD CONFLICTS & SYSTEM CRASHES)
+--------------------------------------------------------------------------------
+
+DO NOT upload the following folders/files to the cloud:
+
+❌ .venv/              - NEVER upload local virtual environments. Windows binaries/DLLs
+                         will immediately crash on Linux/Ubuntu cloud GPUs.
+❌ __pycache__/        - Python bytecode causes version mismatch conflicts.
+❌ __marimo__/         - Local session cache.
+❌ .pytest_cache/      - Local testing cache.
+❌ out/                - Created fresh by Step 3 during distillation pretraining.
+❌ runs/               - Created fresh by Step 4 during YOLO fine-tuning.
+❌ dataset/pediatric_dataset/images/
+                       - Downloaded in parallel dynamically by Step 2 in the cloud.
+                         Uploading thousands of local image files wastes upload bandwidth.
+
+
+--------------------------------------------------------------------------------
+4. STEP-BY-STEP CLOUD SETUP & RUN COMMANDS
+--------------------------------------------------------------------------------
+
+[Step 1] Connect to Cloud GPU Terminal & Navigate to Project Directory:
+   cd /workspace
+
+[Step 2] Install Dependencies:
+   Option A (Using uv - Fastest, ~15 seconds):
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+      source $HOME/.cargo/env
+      uv pip install -r requirements.txt
+
+   Option B (Using standard pip):
+      pip install -r requirements.txt
+
+[Step 3] Launch Marimo Notebook:
+   For interactive browser access with public IP / SSH port forwarding:
+      marimo edit dinov3_yolo26s_distillation_train.py --host 0.0.0.0 --port 2718 --no-token
+
+   Or using uv:
+      uv run marimo edit dinov3_yolo26s_distillation_train.py --host 0.0.0.0 --port 2718 --no-token
+
+
+--------------------------------------------------------------------------------
+5. DIRECTORY RUNTIME OUTPUT MAP (WHAT GETS GENERATED DURING TRAINING)
+--------------------------------------------------------------------------------
+
+When running inside the cloud, the script will automatically generate:
+
+/workspace/
+├── dataset/
+│   └── pediatric_dataset/                 <-- Generated by Step 2 Ingestion
+│       ├── images/
+│       │   ├── train/ (Extracted & downloaded JPEGs)
+│       │   └── val/
+│       ├── labels/
+│       │   ├── train/ (YOLO format txt annotations)
+│       │   └── val/
+│       └── pediatric_data.yaml            <-- Auto-generated dataset config
+│
+├── out/
+│   └── pediatric_distill_exp/             <-- Generated by Step 3 Distillation
+│       └── exported_models/
+│           └── exported_last.pt           <-- Representation-distilled student weights
+│
+├── runs/
+│   └── detect/
+│       └── pediatric_finetune/            <-- Generated by Step 4 Fine-Tuning
+│           └── weights/
+│               ├── best.pt                <-- Best checkpoint on validation set
+│               └── last.pt
+│
+└── computer_vision_model/
+    └── yolo26s_distilled.pt               <-- Auto-published final best model
+================================================================================

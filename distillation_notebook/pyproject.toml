@@ -1,0 +1,31 @@
+[project]
+name = "pediatric-distillation-vision"
+version = "0.1.0"
+description = "Pediatric Detection, DINOv3 Distillation, SAHI Slicing & Counting System for Hospital CCTV"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "marimo>=0.11.0",
+    "ultralytics>=8.3.0",
+    "supervision>=0.25.0",
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "opencv-python-headless>=4.9.0",
+    "pillow>=10.2.0",
+    "numpy>=1.26.0",
+    "matplotlib>=3.8.0",
+    "altair>=5.2.0",
+    "pyyaml>=6.0.1",
+    "yt-dlp>=2024.0.0",
+    "lightly-train[ultralytics]",
+    "onnx>=1.16.0",
+    "onnxruntime>=1.18.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.marimo.runtime]
+output_max_bytes = 25_000_000
