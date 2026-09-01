@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# pediatric_research_lab
-=======
 # 🔬 Pediatric Research Lab: Knowledge Distillation & Edge Vision for Hospital CCTV
 
 An advanced computer vision and knowledge distillation research pipeline engineered for **pediatric patient detection, occlusion-robust tracking, and automated entry/exit counting** in high-density hospital outpatient department (OPD) CCTV feeds.
@@ -97,4 +94,3 @@ The system supports rigorous academic benchmarking across:
 ## 📜 License & Citation
 
 Developed for academic thesis and clinical computer vision deployment in pediatric healthcare settings.
->>>>>>> 34314a8 (Initial commit: Pediatric Research Lab with Knowledge Distillation, SAHI Occlusion Slicing, and Interactive Marimo Visual Lab)

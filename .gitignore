@@ -67,27 +67,18 @@ scratch/
 tempCodeRunnerFile.py
 
 # ==============================================================================
-# Large Binary Assets & Models (>20MB - 1GB+)
+# Large Video Assets (>1GB)
 # ==============================================================================
-# CCTV Video clips (Hospital test feeds ~1.01 GB)
+# CCTV Video feeds (Hospital test clips ~1.01 GB)
 *.mp4
 *.avi
 *.mov
 *.mkv
 distillation_notebook/video_for_testing_model/
 
-# Model Checkpoints & Serialized Weights
-*.pt
-*.pth
-*.onnx
-*.engine
-*.bin
-*.tflite
-distillation_notebook/computer_vision_model/
-yolo26s.pt
-
+# ==============================================================================
 # Large Datasets / Raw Dumps / Image Frames
-*.ndjson
+# ==============================================================================
 distillation_notebook/dataset/extracted/
 distillation_notebook/dataset/raw_downloads/
 distillation_notebook/dataset/frames/
